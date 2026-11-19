@@ -19,21 +19,27 @@
                     </tr>
                 </thead>
                 <tbody>
-                    @forelse($logs as $log)
+           @forelse($logs as $log)
                     <tr>
-                        <td>{{ $loop->iteration }}</td>
-                        <td class="text-muted">{{ optional($log->created_at)->format('d M Y H:i:s') }}</td>
-                        <td><strong>{{ $log->user->nama_lengkap ?? '-' }}</strong></td>
+                        <td>{{ $logs->firstItem() + $loop->index }}</td>
+                        <td class="text-muted">{{ \Carbon\Carbon::parse($log->waktu)->format('d M Y H:i:s') }}</td>
+                        <td><strong>{{ $log->user->nama_lengkap ?? 'System' }}</strong></td>
                         <td>{{ $log->aktivitas }}</td>
                         <td><code>{{ $log->ip_address }}</code></td>
                     </tr>
                     @empty
                     <tr>
-                        <td colspan="5" class="text-center text-muted py-4">Belum ada aktivitas tercatat.</td>
+                        <td colspan="5" class="text-center text-muted py-4">Belum ada log aktivitas.</td>
                     </tr>
-                    @endforelse
+             @endforelse
                 </tbody>
-            </table>
+                  </table>
+     </div>
+        <div class="d-flex justify-content-between align-items-center p-3">
+            <small class="text-muted">
+                Menampilkan {{ $logs->firstItem() }} - {{ $logs->lastItem() }} dari {{ $logs->total() }} data
+            </small>
+            {{ $logs->onEachSide(1)->links('pagination::bootstrap-5') }}
         </div>
     </div>
 </div>

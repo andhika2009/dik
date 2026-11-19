@@ -5,8 +5,14 @@
 @section('content')
 <h3 class="fw-bold mb-4">Operasional Transaksi Parkir</h3>
 
-@if(session('success'))
-    <div class="alert alert-success">{{ session('success') }}</div>
+@if(request('selesai'))
+    <div class="alert alert-success d-flex justify-content-between align-items-center" id="alertSelesai">
+        <div>
+            <strong>Struk {{ request('selesai') }} selesai dicetak.</strong>
+            Kendaraan <strong>{{ request('plat') }}</strong> sudah keluar dan slot area kembali tersedia.
+        </div>
+        <button type="button" class="btn-close" onclick="this.parentElement.remove()"></button>
+    </div>
 @endif
 
 <div class="card shadow-sm mb-4">
@@ -16,7 +22,14 @@
             @csrf
             <div class="col-md-4">
                 <label class="form-label">No Plat</label>
-                <input type="text" name="plat_nomer" value="{{ old('plat_nomer') }}" class="form-control @error('plat_nomer') is-invalid @enderror" required>
+                <input type="text" name="plat_nomer" id="plat_nomer" value="{{ old('plat_nomer') }}"
+                    class="form-control @error('plat_nomer') is-invalid @enderror"
+                    placeholder="D 1234 AB"
+                    maxlength="11"
+                    pattern="^[A-Za-z]{1,2}\s?[0-9]{1,4}\s?[A-Za-z]{0,3}$"
+                    title="Format plat Indonesia, contoh: D 1234 AB"
+                    style="text-transform: uppercase"
+                    required>
                 @error('plat_nomer') <div class="invalid-feedback">{{ $message }}</div> @enderror
             </div>
             <div class="col-md-3">
@@ -27,13 +40,16 @@
                     @endforeach
                 </select>
             </div>
-            <div class="col-md-3">
+           <div class="col-md-3">
                 <label class="form-label">Area</label>
                 <select name="id_area" class="form-select" required>
                     @foreach($areas as $a)
-                        <option value="{{ $a->id_area }}">{{ $a->nama_area }}</option>
+                        <option value="{{ $a->id_area }}">
+                            {{ $a->nama_area }} ({{ $a->sisa > 0 ? 'sisa ' . $a->sisa . ' slot' : 'PENUH' }})
+                        </option>
                     @endforeach
                 </select>
+                @error('id_area') <div class="text-danger small">{{ $message }}</div> @enderror
             </div>
             <div class="col-md-2 d-flex align-items-end">
                 <button class="btn btn-primary w-100">Simpan Masuk</button>
@@ -68,6 +84,37 @@
                 <tr><td colspan="6" class="text-center py-4 text-muted">Belum ada data kendaraan aktif.</td></tr>
             @endforelse
         </tbody>
-    </table>
+       </table>
 </div>
+    <script>
+        const platInput = document.getElementById('plat_nomer');
+        const pesanPlat = 'Format plat tidak valid. Contoh yang benar: D 1234 AB';
+
+        platInput.addEventListener('input', function () {
+            this.value = this.value.toUpperCase().replace(/[^A-Z0-9 ]/g, '');
+            this.setCustomValidity('');   // reset pesan saat mengetik
+        });
+
+           platInput.addEventListener('invalid', function () {
+        if (this.validity.valueMissing) {
+            this.setCustomValidity('No plat wajib diisi.');
+        } else {
+            this.setCustomValidity(pesanPlat);
+        }
+    });         
+
+    // Kalau halaman muncul dari cache (tombol back), muat ulang supaya data terbaru
+    window.addEventListener('pageshow', function (e) {
+        if (e.persisted) window.location.reload();
+
+            // Hapus parameter dari URL supaya pesan tidak muncul lagi saat refresh, dan hilang otomatis
+    if (location.search.includes('selesai=')) {
+        history.replaceState(null, '', location.pathname);
+        setTimeout(function () {
+            const el = document.getElementById('alertSelesai');
+            if (el) el.remove();
+        }, 6000);
+    }
+    });
+</script>
 @endsection

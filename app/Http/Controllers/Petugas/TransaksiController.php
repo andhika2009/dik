@@ -18,19 +18,33 @@ class TransaksiController extends Controller
             ->latest('waktu_masuk')
             ->get();
 
-        $areas  = Area::all();
+        $areas = Area::orderBy('id_area')->get()->map(function ($a) {
+        $a->terisi = Transaksi::whereNull('waktu_keluar')->where('id_area', $a->id_area)->count();
+        $a->sisa   = max(0, $a->kapasitas - $a->terisi);
+        return $a;
+});
         $tarifs = Tarif::all();
-
-       return view('petugas.transaksi.index', compact('aktif', 'areas', 'tarifs'));
+      return response()
+    ->view('petugas.transaksi.index', compact('aktif', 'areas', 'tarifs'))
+    ->header('Cache-Control', 'no-store, no-cache, must-revalidate')
+    ->header('Pragma', 'no-cache');
     }
+ 
 
-       public function store(Request $request)
-    {
-        $data = $request->validate([
-            'plat_nomer'      => 'required|string|max:20',
-            'jenis_kendaraan' => 'required|string|exists:tb_tarif,jenis_kendaraan',
-            'id_area'         => 'required|exists:tb_area_parkir,id_area',
-        ]);
+     public function store(Request $request)
+{
+    $request->merge([
+        'plat_nomer' => strtoupper(preg_replace('/\s+/', ' ', trim($request->plat_nomer))),
+    ]);
+
+   $data = $request->validate([
+    'plat_nomer'      => ['required', 'string', 'max:11', 'regex:/^[A-Z]{1,2}\s?[0-9]{1,4}\s?[A-Z]{0,3}$/'],
+    'jenis_kendaraan' => 'required|string|exists:tb_tarif,jenis_kendaraan',
+    'id_area'         => 'required|exists:tb_area_parkir,id_area',
+], [
+    'plat_nomer.required' => 'No plat wajib diisi.',
+    'plat_nomer.regex'    => 'Format plat tidak valid. Contoh: D 1234 AB',
+]);
 
         $plat    = strtoupper(trim($data['plat_nomer']));
         $idUser  = auth()->user()->id_user;
@@ -45,23 +59,48 @@ class TransaksiController extends Controller
         }
 
         $tarif = Tarif::where('jenis_kendaraan', $data['jenis_kendaraan'])->firstOrFail();
+              // Cari area yang masih ada slot: mulai dari area yang dipilih, lalu ke area berikutnya
+        $areaDipilih = Area::findOrFail($data['id_area']);
+        $areaTujuan  = null;
 
+    $kandidat = Area::where('id_area', '>=', $areaDipilih->id_area)
+        ->orderBy('id_area')
+        ->get();
+
+    foreach ($kandidat as $a) {
+        $terisi = Transaksi::whereNull('waktu_keluar')->where('id_area', $a->id_area)->count();
+        if ($terisi < $a->kapasitas) {
+            $areaTujuan = $a;
+            break;
+        }
+    }
+
+    if (!$areaTujuan) {
+        return back()
+            ->withErrors(['id_area' => 'Semua area dari ' . $areaDipilih->nama_area . ' sampai terakhir sudah penuh.'])
+            ->withInput();
+    }
         $kendaraan = Kendaraan::firstOrCreate(
             ['plat_nomer' => $plat],
             ['jenis_kendaraan' => $data['jenis_kendaraan'], 'id_user' => $idUser]
         );
 
-        Transaksi::create([
-            'id_kendaraan' => $kendaraan->id_kendaraan,
-            'id_tarif'     => $tarif->id_tarif,
-            'id_area'      => $data['id_area'],
-            'id_user'      => $idUser,
-            'waktu_masuk'  => now(),
-            'status'       => 'masuk',
-        ]);
+       Transaksi::create([
+    'id_kendaraan' => $kendaraan->id_kendaraan,
+    'id_tarif'     => $tarif->id_tarif,
+    'id_area'      => $areaTujuan->id_area,
+    'id_user'      => $idUser,
+    'waktu_masuk'  => now(),
+    'status'       => 'masuk',
+]);
 
-        return redirect('/petugas/transaksi')->with('success', 'Kendaraan masuk dicatat.');
-    }
+$pesan = 'Kendaraan masuk dicatat di ' . $areaTujuan->nama_area . '.';
+if ($areaTujuan->id_area != $areaDipilih->id_area) {
+    $pesan = $areaDipilih->nama_area . ' penuh, kendaraan dialihkan ke ' . $areaTujuan->nama_area . '.';
+}
+
+return redirect('/petugas/transaksi')->with('success', $pesan);
+}
 
     public function keluar($id)
     {

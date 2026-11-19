@@ -8,12 +8,22 @@
     <!-- Panggil CSS Bootstrap / Template Bawaan Projek -->
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css" rel="stylesheet">
+    <link rel="stylesheet" href="{{ asset('css/theme.css') }}">
+ <style>
+    @media print {
+        .no-print,
+        #wrapper > nav,
+        #wrapper nav.navbar { display: none !important; }
+        body { background: white !important; }
+    }
+</style>
+
 </head>
 <body class="bg-light">
-
+ 
     <div class="d-flex" id="wrapper">
         <!-- Sidebar Navigation -->
-        <div class="bg-dark text-white p-3 min-vh-100" style="width: 250px;">
+       <div class="bg-dark text-white p-3 min-vh-100 no-print" 
             <h4 class="text-center py-2 border-bottom fw-bold">Sistem Parkir</h4>
             <div class="nav flex-column nav-pills mt-3 gap-1">
                 @if(auth()->check() && auth()->user()->role == 'admin')
